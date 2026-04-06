@@ -441,6 +441,8 @@ async function handleRequest(req, res) {
     const method = req.method.toUpperCase();
     const pname = url.pathname;
 
+    console.log(`[SERVER] Incoming request: ${method} ${pname}`);
+
     // Security headers
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
@@ -450,7 +452,11 @@ async function handleRequest(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    if (method === 'OPTIONS') { res.writeHead(204); return res.end(); }
+    if (method === 'OPTIONS') {
+        console.log('[SERVER] Handling CORS preflight request');
+        res.writeHead(204);
+        return res.end();
+    }
 
     try {
         // ── Root → index.html ──────────────────────────────────
@@ -732,109 +738,191 @@ async function handleRequest(req, res) {
 
         // ── POST /api/auth/google — Firebase Google Sign-In ───────────────────
         if (pname === '/api/auth/google' && method === 'POST') {
-            const body = await readJSON(req);
-            const { uid, email, name, photoURL } = body;
-            
-            if (!uid || !email) {
-                res.writeHead(400, { 'Content-Type': 'application/json' });
-                return res.end(JSON.stringify({ error: 'Invalid Firebase user data' }));
-            }
-            
-            // Check if user exists by email
-            let user = await store.getUserByEmail(email.toLowerCase());
-            
-            if (!user) {
-                // Create new user from Google sign-in
-                const userId = `usr_${crypto.randomBytes(8).toString('hex')}`;
-                await store.createUser({
-                    id: userId,
-                    email: email.toLowerCase(),
-                    name: name || email.split('@')[0],
-                    role: 'buyer', // Default role for Google sign-in
-                    password_hash: null, // No password for Google users
-                    firebase_uid: uid,
-                    photo_url: photoURL,
-                    auth_provider: 'google',
-                });
-                user = await store.getUserByEmail(email.toLowerCase());
-                console.log(`[auth] New Google user registered: ${email}`);
-            } else {
-                // Update existing user with Firebase UID if not set
-                if (!user.firebase_uid) {
-                    await store.updateUserFirebaseUID(user.id, uid, photoURL);
+            console.log('[AUTH] Processing Google authentication request');
+            try {
+                const body = await readJSON(req);
+                const { uid, email, name, photoURL } = body;
+
+                console.log('[AUTH] Google auth attempt for email:', email, 'uid:', uid);
+
+                if (!uid || !email) {
+                    console.error('[AUTH] Google auth failed: Missing uid or email');
+                    console.error('[AUTH] Received data:', { uid: !!uid, email: !!email, name: !!name });
+                    console.error('[AUTH] To fix: Ensure Firebase provides uid and email');
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    return res.end(JSON.stringify({ error: 'Invalid Firebase user data' }));
                 }
+
+                console.log('[AUTH] Checking if Google user exists in database');
+                // Check if user exists by email
+                let user = await store.getUserByEmail(email.toLowerCase());
+
+                if (!user) {
+                    console.log('[AUTH] Creating new Google user');
+                    // Create new user from Google sign-in
+                    const userId = `usr_${crypto.randomBytes(8).toString('hex')}`;
+                    await store.createUser({
+                        id: userId,
+                        email: email.toLowerCase(),
+                        name: name || email.split('@')[0],
+                        role: 'buyer', // Default role for Google sign-in
+                        password_hash: null, // No password for Google users
+                        firebase_uid: uid,
+                        photo_url: photoURL,
+                        auth_provider: 'google',
+                    });
+                    user = await store.getUserByEmail(email.toLowerCase());
+                    console.log(`[AUTH] New Google user registered: ${email}`);
+                } else {
+                    console.log('[AUTH] Existing user found, updating Firebase UID if needed');
+                    // Update existing user with Firebase UID if not set
+                    if (!user.firebase_uid) {
+                        await store.updateUserFirebaseUID(user.id, uid, photoURL);
+                        console.log('[AUTH] Updated existing user with Firebase UID');
+                    }
+                }
+
+                console.log('[AUTH] Generating authentication token for Google user');
+                const token = generateToken(user.email);
+                tokens.set(token, user.email);
+
+                console.log('[AUTH] Updating user last access time');
+                await store.touchUser(user.id);
+
+                console.log('[AUTH] Google authentication successful for:', user.email);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                return res.end(JSON.stringify({
+                    user: serializeUser({ ...user, photo_url: user.photo_url || photoURL }),
+                    token,
+                }));
+            } catch (error) {
+                console.error('[AUTH] Unexpected error during Google authentication:', error.message);
+                console.error('[AUTH] Stack trace:', error.stack);
+                console.error('[AUTH] To fix: Check Firebase config, database connection, or contact developer');
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                return res.end(JSON.stringify({ error: 'Internal server error' }));
             }
-            
-            const token = generateToken(user.email);
-            tokens.set(token, user.email);
-            await store.touchUser(user.id);
-            
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            return res.end(JSON.stringify({
-                user: serializeUser({ ...user, photo_url: user.photo_url || photoURL }),
-                token,
-            }));
         }
 
         // ── POST /api/auth/login — DB-BACKED ───────────────────
         if (pname === '/api/auth/login' && method === 'POST') {
-            const body = await readJSON(req);
-            const { email, password } = body;
-            if (!email || !password) {
-                res.writeHead(400, { 'Content-Type': 'application/json' });
-                return res.end(JSON.stringify({ error: 'Email and password are required' }));
+            console.log('[AUTH] Processing login request');
+            try {
+                const body = await readJSON(req);
+                const { email, password } = body;
+
+                console.log('[AUTH] Login attempt for email:', email);
+
+                if (!email || !password) {
+                    console.error('[AUTH] Login failed: Missing email or password');
+                    console.error('[AUTH] To fix: Ensure both email and password are provided in request body');
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    return res.end(JSON.stringify({ error: 'Email and password are required' }));
+                }
+
+                console.log('[AUTH] Looking up user in database');
+                const user = await store.getUserByEmail(email.toLowerCase());
+
+                if (!user) {
+                    console.error('[AUTH] Login failed: User not found for email:', email);
+                    console.error('[AUTH] To fix: User may not be registered, or email case sensitivity issue');
+                    res.writeHead(401, { 'Content-Type': 'application/json' });
+                    return res.end(JSON.stringify({ error: 'Invalid email or password' }));
+                }
+
+                console.log('[AUTH] Verifying password');
+                const hash = crypto.createHash('sha256').update(password).digest('hex');
+
+                if (!user.password_hash) {
+                    console.error('[AUTH] Login failed: User has no password hash (likely Google-only account)');
+                    console.error('[AUTH] To fix: User should login with Google instead');
+                    res.writeHead(401, { 'Content-Type': 'application/json' });
+                    return res.end(JSON.stringify({ error: 'Invalid email or password' }));
+                }
+
+                if (user.password_hash !== hash) {
+                    console.error('[AUTH] Login failed: Password hash mismatch');
+                    console.error('[AUTH] To fix: Check password is correct');
+                    res.writeHead(401, { 'Content-Type': 'application/json' });
+                    return res.end(JSON.stringify({ error: 'Invalid email or password' }));
+                }
+
+                console.log('[AUTH] Generating authentication token');
+                const token = generateToken(user.email);
+                tokens.set(token, user.email);
+
+                console.log('[AUTH] Updating user last access time');
+                await store.touchUser(user.id);
+
+                console.log('[AUTH] Login successful for user:', user.email);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                return res.end(JSON.stringify({
+                    user: serializeUser(user),
+                    token,
+                }));
+            } catch (error) {
+                console.error('[AUTH] Unexpected error during login:', error.message);
+                console.error('[AUTH] Stack trace:', error.stack);
+                console.error('[AUTH] To fix: Check database connection, request parsing, or contact developer');
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                return res.end(JSON.stringify({ error: 'Internal server error' }));
             }
-            const user = await store.getUserByEmail(email.toLowerCase());
-            const hash = crypto.createHash('sha256').update(password).digest('hex');
-            if (!user) {
-                res.writeHead(401, { 'Content-Type': 'application/json' });
-                return res.end(JSON.stringify({ error: 'Invalid email or password' }));
-            }
-            if (!user.password_hash) {
-                res.writeHead(401, { 'Content-Type': 'application/json' });
-                return res.end(JSON.stringify({ error: 'Invalid email or password' }));
-            }
-            if (user.password_hash !== hash) {
-                res.writeHead(401, { 'Content-Type': 'application/json' });
-                return res.end(JSON.stringify({ error: 'Invalid email or password' }));
-            }
-            const token = generateToken(user.email);
-            tokens.set(token, user.email);
-            await store.touchUser(user.id);
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            return res.end(JSON.stringify({
-                user: serializeUser(user),
-                token,
-            }));
         }
 
         // ── POST /api/auth/register — DB-BACKED ────────────────
         if (pname === '/api/auth/register' && method === 'POST') {
-            const body = await readJSON(req);
-            const { email, password, name, role } = body;
-            if (!email || !password || !name) {
-                res.writeHead(400, { 'Content-Type': 'application/json' });
-                return res.end(JSON.stringify({ error: 'Email, password, and name are required' }));
+            console.log('[AUTH] Processing registration request');
+            try {
+                const body = await readJSON(req);
+                const { email, password, name, role } = body;
+
+                console.log('[AUTH] Registration attempt for email:', email, 'role:', role);
+
+                if (!email || !password || !name) {
+                    console.error('[AUTH] Registration failed: Missing required fields');
+                    console.error('[AUTH] Required: email, password, name. Received:', { email: !!email, password: !!password, name: !!name });
+                    console.error('[AUTH] To fix: Ensure all required fields are provided in request body');
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    return res.end(JSON.stringify({ error: 'Email, password, and name are required' }));
+                }
+
+                console.log('[AUTH] Checking if user already exists');
+                const existing = await store.getUserByEmail(email.toLowerCase());
+                if (existing) {
+                    console.error('[AUTH] Registration failed: Email already exists:', email);
+                    console.error('[AUTH] To fix: User should login instead of register, or use different email');
+                    const msg = 'An account with this email already exists';
+                    res.writeHead(409, { 'Content-Type': 'application/json' });
+                    return res.end(JSON.stringify({ error: msg }));
+                }
+
+                const userRole = (role === 'photographer') ? 'photographer' : 'buyer';
+                console.log('[AUTH] Creating user with role:', userRole);
+
+                const hash = crypto.createHash('sha256').update(password).digest('hex');
+                const id = `usr_${crypto.randomBytes(8).toString('hex')}`;
+
+                console.log('[AUTH] Saving user to database');
+                await store.createUser({ id, email, name, role: userRole, password_hash: hash });
+
+                console.log('[AUTH] Generating authentication token');
+                const token = generateToken(email);
+                tokens.set(token, email.toLowerCase());
+
+                console.log(`[AUTH] Registration successful: ${email} as ${userRole}`);
+                const createdUser = await store.getUserById(id);
+                res.writeHead(201, { 'Content-Type': 'application/json' });
+                return res.end(JSON.stringify({
+                    user: serializeUser(createdUser),
+                    token,
+                }));
+            } catch (error) {
+                console.error('[AUTH] Unexpected error during registration:', error.message);
+                console.error('[AUTH] Stack trace:', error.stack);
+                console.error('[AUTH] To fix: Check database connection, request parsing, or contact developer');
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                return res.end(JSON.stringify({ error: 'Internal server error' }));
             }
-            const existing = await store.getUserByEmail(email.toLowerCase());
-            if (existing) {
-                const msg = 'An account with this email already exists';
-                res.writeHead(409, { 'Content-Type': 'application/json' });
-                return res.end(JSON.stringify({ error: msg }));
-            }
-            const userRole = (role === 'photographer') ? 'photographer' : 'buyer';
-            const hash = crypto.createHash('sha256').update(password).digest('hex');
-            const id = `usr_${crypto.randomBytes(8).toString('hex')}`;
-            await store.createUser({ id, email, name, role: userRole, password_hash: hash });
-            const token = generateToken(email);
-            tokens.set(token, email.toLowerCase());
-            console.log(`[auth] Registered: ${email} as ${userRole} → DB`);
-            const createdUser = await store.getUserById(id);
-            res.writeHead(201, { 'Content-Type': 'application/json' });
-            return res.end(JSON.stringify({
-                user: serializeUser(createdUser),
-                token,
-            }));
         }
 
         // ── GET /api/auth/me ───────────────────────────────────
@@ -1681,11 +1769,17 @@ async function handleRequest(req, res) {
         }
 
         // ── 404 ────────────────────────────────────────────────
+        console.error(`[SERVER] 404 Not Found: ${method} ${pname}`);
+        console.error('[SERVER] No route matched this request');
+        console.error('[SERVER] To fix: Check URL spelling, ensure API endpoint exists, verify HTTP method');
         res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: `No route matched: ${method} ${pname}` }));
 
     } catch (err) {
-        console.error('[server error]', err);
+        console.error('[SERVER] Unexpected error in request handler:', err.message);
+        console.error('[SERVER] Stack trace:', err.stack);
+        console.error('[SERVER] Request details:', { method, url: pname });
+        console.error('[SERVER] To fix: Check request parsing, database operations, or add error handling');
         if (!res.headersSent) {
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Internal server error', message: err.message }));
@@ -1741,15 +1835,33 @@ function generatePlaceholderJPEG(hexColor, label = '') {
 // ─────────────────────────────────────────────────────────────
 
 async function main() {
-    // 1. Connect to MongoDB
-    await store.connect();
+    console.log('[SERVER] Starting ChitraVithika server...');
 
-    // 2. Initialize auctions from DB
-    await initAuctions();
+    console.log('[SERVER] Step 1: Connecting to MongoDB');
+    try {
+        await store.connect();
+        console.log('[SERVER] MongoDB connection successful');
+    } catch (error) {
+        console.error('[SERVER] Failed to connect to MongoDB:', error.message);
+        console.error('[SERVER] To fix: Check MONGO_URI, ensure MongoDB is running, verify network connectivity');
+        throw error;
+    }
+
+    console.log('[SERVER] Step 2: Initializing auctions from database');
+    try {
+        await initAuctions();
+        console.log('[SERVER] Auctions initialized successfully');
+    } catch (error) {
+        console.error('[SERVER] Failed to initialize auctions:', error.message);
+        console.error('[SERVER] To fix: Check database schema, auction data integrity');
+        throw error;
+    }
+
+    console.log('[SERVER] Step 3: Starting auction ticker (every 2 seconds)');
     setInterval(tickAuctions, 2_000);
-    tickAuctions();
+    tickAuctions(); // Initial tick
 
-    // 3. Start HTTP server
+    console.log('[SERVER] Step 4: Starting HTTP server');
     const server = http.createServer(handleRequest);
 
     server.listen(PORT, () => {
@@ -1775,24 +1887,31 @@ async function main() {
         console.log('');
         console.log('  Production mode. All data persisted to MongoDB.');
         console.log('');
+        console.log('[SERVER] Server startup completed successfully!');
     });
 
     server.on('error', (err) => {
         if (err.code === 'EADDRINUSE') {
-            console.error(`[error] Port ${PORT} is already in use.`);
+            console.error(`[SERVER] Port ${PORT} is already in use.`);
+            console.error('[SERVER] To fix: Change PORT in .env or kill process using the port');
         } else {
-            console.error('[server error]', err);
+            console.error('[SERVER] Server error:', err);
+            console.error('[SERVER] To fix: Check system resources, port availability');
         }
         process.exit(1);
     });
 
+    console.log('[SERVER] Setting up graceful shutdown handlers');
     // Graceful shutdown
     process.on('SIGINT', async () => {
-        console.log('\n[shutdown] Closing MongoDB connection...');
+        console.log('\n[SERVER] Received SIGINT, shutting down gracefully...');
+        console.log('[SERVER] Closing MongoDB connection...');
         await store.close();
+        console.log('[SERVER] Shutdown complete');
         process.exit(0);
     });
     process.on('SIGTERM', async () => {
+        console.log('\n[SERVER] Received SIGTERM, shutting down gracefully...');
         await store.close();
         process.exit(0);
     });
@@ -1800,12 +1919,15 @@ async function main() {
 
 // Crash protection — log but don't exit (skip on Vercel serverless)
 if (require.main === module) {
+    console.log('[SERVER] Setting up crash protection handlers');
     process.on('uncaughtException', (err) => {
-        console.error('[UNCAUGHT EXCEPTION]', err.message);
-        console.error(err.stack);
+        console.error('[CRASH] Uncaught exception:', err.message);
+        console.error('[CRASH] Stack trace:', err.stack);
+        console.error('[CRASH] To fix: Check for null/undefined access, async errors, or unhandled promises');
     });
     process.on('unhandledRejection', (reason) => {
-        console.error('[UNHANDLED REJECTION]', reason);
+        console.error('[CRASH] Unhandled promise rejection:', reason);
+        console.error('[CRASH] To fix: Add .catch() to promises or use try/catch in async functions');
     });
 }
 

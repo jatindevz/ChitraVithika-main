@@ -35,8 +35,13 @@ const firebaseConfig = {
  * Initialize Firebase (lazy initialization)
  */
 export function initFirebase() {
-    if (initialized) return { app, auth, provider };
-    
+    console.log('[FIREBASE] Checking Firebase initialization status');
+    if (initialized) {
+        console.log('[FIREBASE] Firebase already initialized, reusing instance');
+        return { app, auth, provider };
+    }
+
+    console.log('[FIREBASE] Initializing Firebase with config');
     try {
         app = initializeApp(firebaseConfig);
         auth = getAuth(app);
@@ -44,12 +49,15 @@ export function initFirebase() {
         provider.addScope('email');
         provider.addScope('profile');
         initialized = true;
-        console.log('[firebase] Initialized successfully');
+        console.log('[FIREBASE] Firebase initialized successfully');
     } catch (error) {
-        console.error('[firebase] Initialization failed:', error);
+        console.error('[FIREBASE] Firebase initialization failed:', error.message);
+        console.error('[FIREBASE] Config check - API Key present:', !!firebaseConfig.apiKey);
+        console.error('[FIREBASE] Config check - Project ID present:', !!firebaseConfig.projectId);
+        console.error('[FIREBASE] To fix: Check VITE_FIREBASE_* environment variables in .env');
         throw error;
     }
-    
+
     return { app, auth, provider };
 }
 
@@ -58,13 +66,19 @@ export function initFirebase() {
  * Returns user info and ID token
  */
 export async function signInWithGoogle() {
-    const { auth, provider } = initFirebase();
-    
+    console.log('[FIREBASE] Starting Google sign-in process');
     try {
+        console.log('[FIREBASE] Initializing Firebase');
+        const { auth, provider } = initFirebase();
+
+        console.log('[FIREBASE] Opening Google sign-in popup');
         const result = await signInWithPopup(auth, provider);
         const user = result.user;
+
+        console.log('[FIREBASE] Getting ID token');
         const idToken = await user.getIdToken();
-        
+
+        console.log('[FIREBASE] Google sign-in successful for:', user.email);
         return {
             uid: user.uid,
             email: user.email,
@@ -73,7 +87,9 @@ export async function signInWithGoogle() {
             idToken,
         };
     } catch (error) {
-        console.error('[firebase] Google sign-in failed:', error);
+        console.error('[FIREBASE] Google sign-in failed:', error.message);
+        console.error('[FIREBASE] Error code:', error.code);
+        console.error('[FIREBASE] To fix: Check Firebase config, network connection, or user permissions');
         throw error;
     }
 }
@@ -82,13 +98,18 @@ export async function signInWithGoogle() {
  * Sign out from Firebase
  */
 export async function signOut() {
-    if (!auth) return;
-    
+    console.log('[FIREBASE] Starting sign-out process');
+    if (!auth) {
+        console.log('[FIREBASE] No auth instance, skipping sign-out');
+        return;
+    }
+
     try {
         await firebaseSignOut(auth);
-        console.log('[firebase] Signed out');
+        console.log('[FIREBASE] Signed out successfully');
     } catch (error) {
-        console.error('[firebase] Sign out failed:', error);
+        console.error('[FIREBASE] Sign out failed:', error.message);
+        console.error('[FIREBASE] To fix: Check Firebase connection or auth state');
     }
 }
 
@@ -96,8 +117,14 @@ export async function signOut() {
  * Get current Firebase user
  */
 export function getCurrentUser() {
-    if (!auth) return null;
-    return auth.currentUser;
+    console.log('[FIREBASE] Getting current user');
+    if (!auth) {
+        console.log('[FIREBASE] No auth instance available');
+        return null;
+    }
+    const user = auth.currentUser;
+    console.log('[FIREBASE] Current user:', user ? user.email : 'none');
+    return user;
 }
 
 /**

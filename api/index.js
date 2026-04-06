@@ -55,30 +55,39 @@ try {
 
 // ─── Vercel handler ────────────────────────────────────────────
 module.exports = async function vercelHandler(req, res) {
+    console.log(`[VERCEL] Incoming request: ${req.method} ${req.url}`);
+
     // Fast fail if server.js couldn't be loaded
     if (loadError) {
-        console.error('[vercel] Handler not available:', loadError);
-        return res.status(500).json({ 
+        console.error('[VERCEL] Handler not available:', loadError);
+        console.error('[VERCEL] To fix: Check server.js file exists and has no syntax errors');
+        return res.status(500).json({
             error: 'Server initialization failed',
             detail: loadError,
         });
     }
 
     if (!handleRequest) {
+        console.error('[VERCEL] handleRequest function not found in server.js');
+        console.error('[VERCEL] To fix: Ensure server.js exports handleRequest function');
         return res.status(500).json({ error: 'Server handler not available' });
     }
 
+    console.log('[VERCEL] Ensuring database connection');
     // 1. Ensure DB connection
     try {
         await getDbConnection();
+        console.log('[VERCEL] Database connection established');
     } catch (err) {
-        console.error('[vercel] DB connection failed:', err.message);
-        return res.status(503).json({ 
+        console.error('[VERCEL] DB connection failed:', err.message);
+        console.error('[VERCEL] To fix: Check MONGO_URI environment variable, database server status, network connectivity');
+        return res.status(503).json({
             error: 'Database connection failed',
             detail: 'Check MONGO_URI environment variable on Vercel dashboard',
         });
     }
 
+    console.log('[VERCEL] Processing request body');
     // 2. Get raw body buffer
     // Vercel may provide body as parsed JSON, string, or raw buffer
     let bodyBuffer;
@@ -97,6 +106,7 @@ module.exports = async function vercelHandler(req, res) {
         bodyBuffer = Buffer.alloc(0);
     }
 
+    console.log('[VERCEL] Creating Node.js compatible request/response objects');
     // 3. Create Node.js IncomingMessage-like object using EventEmitter
     const incomingMessage = new EventEmitter();
     incomingMessage.method = req.method;
@@ -181,27 +191,33 @@ module.exports = async function vercelHandler(req, res) {
         },
     };
 
+    console.log('[VERCEL] Setting up request timeout protection (25s)');
     // 5. Call the existing handler with timeout protection
     const handlerTimeout = setTimeout(() => {
         if (!responseEnded) {
-            console.error('[vercel] Handler timeout after 25s');
+            console.error('[VERCEL] Request timeout after 25s - terminating');
+            console.error('[VERCEL] To fix: Check for long-running operations, database queries, or infinite loops');
             responseEnded = true;
             res.status(504).json({ error: 'Request timeout' });
         }
     }, 25_000);
 
+    console.log('[VERCEL] Calling server handleRequest function');
     try {
         await handleRequest(incomingMessage, serverResponse);
+        console.log(`[VERCEL] Request completed successfully with status: ${responseStatusCode}`);
     } catch (error) {
-        console.error('[vercel] Handler error:', error.message);
-        console.error('[vercel] Stack:', error.stack);
+        console.error('[VERCEL] Handler error:', error.message);
+        console.error('[VERCEL] Stack trace:', error.stack);
+        console.error('[VERCEL] To fix: Check server.js logic, database operations, or request parsing');
         if (!responseEnded) {
-            res.status(500).json({ 
+            res.status(500).json({
                 error: 'Internal server error',
                 detail: error.message,
             });
         }
     } finally {
         clearTimeout(handlerTimeout);
+        console.log('[VERCEL] Request processing finished');
     }
 };

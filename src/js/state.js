@@ -128,77 +128,125 @@ window.addEventListener('storage', (event) => {
 // ─── Auth Actions ─────────────────────────────────────────
 
 export async function login(email, password) {
-    const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-    });
-
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Login failed' }));
-        throw new Error(err.error || 'Login failed');
-    }
-
-    const data = await res.json();
-    setState('auth', {
-        user: data.user,
-        token: data.token,
-        loggedIn: true,
-    });
-
-    // Claim any unclaimed photos for this user and refresh catalog
+    console.log('[LOGIN] Starting login attempt for:', email);
     try {
-        await fetch('/api/claim-photos', {
+        console.log('[LOGIN] Making API request to /api/auth/login');
+        const res = await fetch('/api/auth/login', {
             method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${data.token}` 
-            },
-            body: JSON.stringify({ userId: data.user.id, userName: data.user.name }),
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
         });
-        await refreshCatalogFromApi();
-        await syncBuyerDashboardFromApi();
-    } catch (e) {
-        console.warn('[login] Failed to claim photos:', e);
-    }
 
-    return data.user;
+        console.log('[LOGIN] API response status:', res.status);
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: 'Login failed' }));
+            console.error('[LOGIN] Login failed - Status:', res.status, 'Error:', err.error);
+            console.error('[LOGIN] Possible causes: Wrong credentials, server down, network issue');
+            console.error('[LOGIN] To fix: Check email/password, verify server is running, check network connection');
+            throw new Error(err.error || 'Login failed');
+        }
+
+        const data = await res.json();
+        console.log('[LOGIN] Login successful for user:', data.user?.email);
+
+        setState('auth', {
+            user: data.user,
+            token: data.token,
+            loggedIn: true,
+        });
+
+        console.log('[LOGIN] User state updated, claiming photos...');
+        // Claim any unclaimed photos for this user and refresh catalog
+        try {
+            await fetch('/api/claim-photos', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${data.token}`
+                },
+                body: JSON.stringify({ userId: data.user.id, userName: data.user.name }),
+            });
+            console.log('[LOGIN] Photos claimed successfully');
+            await refreshCatalogFromApi();
+            await syncBuyerDashboardFromApi();
+            console.log('[LOGIN] Catalog and dashboard synced');
+        } catch (e) {
+            console.warn('[LOGIN] Failed to claim photos or sync data:', e.message);
+            console.warn('[LOGIN] This is non-critical, user can continue');
+        }
+
+        console.log('[LOGIN] Login process completed successfully');
+        return data.user;
+    } catch (error) {
+        console.error('[LOGIN] Unexpected error during login:', error.message);
+        console.error('[LOGIN] Stack trace:', error.stack);
+        console.error('[LOGIN] To fix: Check network, server status, or contact developer');
+        throw error;
+    }
 }
 
 export async function register(userData) {
-    const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData),
-    });
-
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Registration failed' }));
-        throw new Error(err.error || 'Registration failed');
-    }
-
-    const data = await res.json();
-    clearUserScopedState();
-    setState('auth', {
-        user: data.user,
-        token: data.token,
-        loggedIn: true,
-    });
+    console.log('[REGISTER] Starting registration for:', userData.email);
     try {
-        await syncBuyerDashboardFromApi();
-    } catch (e) {
-        console.warn('[register] Failed to sync buyer state:', e);
+        console.log('[REGISTER] Making API request to /api/auth/register');
+        const res = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userData),
+        });
+
+        console.log('[REGISTER] API response status:', res.status);
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: 'Registration failed' }));
+            console.error('[REGISTER] Registration failed - Status:', res.status, 'Error:', err.error);
+            console.error('[REGISTER] Possible causes: Email already exists, invalid data, server error');
+            console.error('[REGISTER] To fix: Check if email is already registered, verify all fields are filled, check server logs');
+            throw new Error(err.error || 'Registration failed');
+        }
+
+        const data = await res.json();
+        console.log('[REGISTER] Registration successful for user:', data.user?.email);
+
+        clearUserScopedState();
+        setState('auth', {
+            user: data.user,
+            token: data.token,
+            loggedIn: true,
+        });
+
+        console.log('[REGISTER] User state updated, syncing dashboard...');
+        try {
+            await syncBuyerDashboardFromApi();
+            console.log('[REGISTER] Dashboard synced successfully');
+        } catch (e) {
+            console.warn('[REGISTER] Failed to sync buyer state:', e.message);
+            console.warn('[REGISTER] This is non-critical, user can continue');
+        }
+
+        console.log('[REGISTER] Registration process completed successfully');
+        return data.user;
+    } catch (error) {
+        console.error('[REGISTER] Unexpected error during registration:', error.message);
+        console.error('[REGISTER] Stack trace:', error.stack);
+        console.error('[REGISTER] To fix: Check network, server status, or contact developer');
+        throw error;
     }
-    return data.user;
 }
 
 export async function loginWithGoogle() {
-    // Dynamically import Firebase module
-    const { signInWithGoogle, signOut: firebaseSignOut } = await import('./firebase.js');
-    
+    console.log('[GOOGLE_LOGIN] Starting Google authentication');
     try {
+        console.log('[GOOGLE_LOGIN] Importing Firebase module');
+        // Dynamically import Firebase module
+        const { signInWithGoogle, signOut: firebaseSignOut } = await import('./firebase.js');
+
+        console.log('[GOOGLE_LOGIN] Initiating Firebase Google sign-in');
         const googleUser = await signInWithGoogle();
-        
+        console.log('[GOOGLE_LOGIN] Firebase sign-in successful for:', googleUser.email);
+
+        console.log('[GOOGLE_LOGIN] Sending user data to backend /api/auth/google');
         // Send to our backend to create/link user
         const res = await fetch('/api/auth/google', {
             method: 'POST',
@@ -211,13 +259,22 @@ export async function loginWithGoogle() {
             }),
         });
 
+        console.log('[GOOGLE_LOGIN] Backend response status:', res.status);
+
         if (!res.ok) {
+            console.error('[GOOGLE_LOGIN] Backend authentication failed - Status:', res.status);
+            console.log('[GOOGLE_LOGIN] Signing out from Firebase due to backend failure');
             await firebaseSignOut();
             const err = await res.json().catch(() => ({ error: 'Google login failed' }));
+            console.error('[GOOGLE_LOGIN] Error details:', err.error);
+            console.error('[GOOGLE_LOGIN] Possible causes: Firebase config issue, backend server error, network problem');
+            console.error('[GOOGLE_LOGIN] To fix: Check Firebase config, verify backend is running, check network');
             throw new Error(err.error || 'Google login failed');
         }
 
         const data = await res.json();
+        console.log('[GOOGLE_LOGIN] Backend authentication successful for:', data.user?.email);
+
         clearUserScopedState();
         setState('auth', {
             user: data.user,
@@ -225,34 +282,49 @@ export async function loginWithGoogle() {
             loggedIn: true,
         });
 
+        console.log('[GOOGLE_LOGIN] User state updated, claiming photos...');
         // Claim any unclaimed photos for this user and refresh catalog
         try {
             await fetch('/api/claim-photos', {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${data.token}` 
+                    'Authorization': `Bearer ${data.token}`
                 },
                 body: JSON.stringify({ userId: data.user.id, userName: data.user.name }),
             });
+            console.log('[GOOGLE_LOGIN] Photos claimed successfully');
             await refreshCatalogFromApi();
             await syncBuyerDashboardFromApi();
+            console.log('[GOOGLE_LOGIN] Catalog and dashboard synced');
         } catch (e) {
-            console.warn('[loginWithGoogle] Failed to claim photos:', e);
+            console.warn('[GOOGLE_LOGIN] Failed to claim photos or sync data:', e.message);
+            console.warn('[GOOGLE_LOGIN] This is non-critical, user can continue');
         }
 
+        console.log('[GOOGLE_LOGIN] Google login process completed successfully');
         return data.user;
     } catch (error) {
-        console.error('[state] Google login error:', error);
+        console.error('[GOOGLE_LOGIN] Unexpected error during Google login:', error.message);
+        console.error('[GOOGLE_LOGIN] Stack trace:', error.stack);
+        console.error('[GOOGLE_LOGIN] To fix: Check Firebase config, network connection, or contact developer');
         throw error;
     }
 }
 
 export function logout() {
-    // Also sign out from Firebase if applicable
-    import('./firebase.js').then(({ signOut }) => signOut()).catch(() => {});
-    clearUserScopedState();
-    setState('auth', { user: null, token: null, loggedIn: false });
+    console.log('[LOGOUT] Starting logout process');
+    try {
+        console.log('[LOGOUT] Signing out from Firebase if applicable');
+        // Also sign out from Firebase if applicable
+        import('./firebase.js').then(({ signOut }) => signOut()).catch(() => {});
+        clearUserScopedState();
+        setState('auth', { user: null, token: null, loggedIn: false });
+        console.log('[LOGOUT] User state cleared, logout completed');
+    } catch (error) {
+        console.error('[LOGOUT] Error during logout:', error.message);
+        console.error('[LOGOUT] This is usually non-critical, but state may be inconsistent');
+    }
 }
 
 export async function deleteCurrentAccount() {

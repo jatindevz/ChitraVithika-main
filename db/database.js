@@ -59,29 +59,37 @@ const CONNECT_OPTS = {
 let isConnected = false;
 
 async function connect() {
+    console.log('[DB] Checking database connection status');
     // Reuse existing connection (important for Vercel serverless cold starts)
     if (isConnected && mongoose.connection.readyState === 1) {
+        console.log('[DB] Reusing existing MongoDB connection');
         return;
     }
 
+    console.log('[DB] Establishing new MongoDB connection to:', MONGO_URI.replace(/\/\/([^:@]+):([^@]+)@/, '//***:***@'));
     try {
         await mongoose.connect(MONGO_URI, CONNECT_OPTS);
         isConnected = true;
+        console.log('[DB] MongoDB connection established successfully');
     } catch (err) {
         isConnected = false;
-        console.error('[db] MongoDB connection failed:', err.message);
+        console.error('[DB] MongoDB connection failed:', err.message);
+        console.error('[DB] Connection string used:', MONGO_URI.replace(/\/\/([^:@]+):([^@]+)@/, '//***:***@'));
+        console.error('[DB] Possible causes: Wrong connection string, network issues, MongoDB not running, firewall blocking');
+        console.error('[DB] To fix: Check MONGO_URI in .env, verify MongoDB is running, check network connectivity, whitelist IP in Atlas');
         throw err;
     }
-    
+
+    console.log('[DB] Initializing GridFS bucket for image storage');
     // Initialize GridFS bucket for image storage
     gridFSBucket = new GridFSBucket(mongoose.connection.db, {
         bucketName: 'images'
     });
 
+    console.log('[DB] Reconciling database indexes');
     await reconcileCommentIndexes();
-    
-    console.log(`[db] Connected to MongoDB: ${MONGO_URI.replace(/\/\/([^:@]+):([^@]+)@/, '//***:***@')}`);
-    console.log('[db] GridFS bucket initialized for image storage');
+
+    console.log(`[DB] Database initialization completed successfully`);
 }
 
 // Graceful close is exported in module.exports below
