@@ -12,7 +12,7 @@
 require('dotenv').config();
 
 const mongoose = require('mongoose');
-const { GridFSBucket } = require('mongodb');
+const { GridFSBucket } = require('mongoose/node_modules/mongodb');
 const { Readable } = require('stream');
 const { User, Photograph, Auction, Bid, Like, Comment, Purchase, Message, getNextSequence } = require('./models');
 
@@ -1418,7 +1418,7 @@ module.exports = {
             throw new Error('GridFS bucket not initialized. Call connect() first.');
         }
 
-        const { ObjectId } = require('mongodb');
+        const { ObjectId } = require('mongoose/node_modules/mongodb');
         const objectId = typeof fileId === 'string' ? new ObjectId(fileId) : fileId;
 
         return new Promise((resolve, reject) => {
@@ -1440,7 +1440,7 @@ module.exports = {
             throw new Error('GridFS bucket not initialized. Call connect() first.');
         }
 
-        const { ObjectId } = require('mongodb');
+        const { ObjectId } = require('mongoose/node_modules/mongodb');
         const objectId = typeof fileId === 'string' ? new ObjectId(fileId) : fileId;
 
         const files = await gridFSBucket.find({ _id: objectId }).toArray();
@@ -1453,7 +1453,7 @@ module.exports = {
             throw new Error('GridFS bucket not initialized. Call connect() first.');
         }
 
-        const { ObjectId } = require('mongodb');
+        const { ObjectId } = require('mongoose/node_modules/mongodb');
         const objectId = typeof fileId === 'string' ? new ObjectId(fileId) : fileId;
 
         await gridFSBucket.delete(objectId);
