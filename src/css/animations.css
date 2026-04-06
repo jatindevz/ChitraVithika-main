@@ -1,0 +1,351 @@
+/* ════════════════════════════════════════════════════════════
+   ChitraVithika — Animation Library
+   All animations use CSS custom properties for easy theming
+   ════════════════════════════════════════════════════════════ */
+
+/* ─── KEYFRAMES ──────────────────────────────────────────── */
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes fade-in-up {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fade-in-down {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes scale-in {
+    from {
+        opacity: 0;
+        transform: scale(0.92);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes slide-in-left {
+    from {
+        opacity: 0;
+        transform: translateX(-24px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slide-in-right {
+    from {
+        opacity: 0;
+        transform: translateX(24px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* ─── PRICE DROP FLASH ───────────────────────────────────── */
+@keyframes price-drop-flash {
+    0% {
+        color: var(--color-text-primary);
+        background: transparent;
+    }
+
+    15% {
+        color: var(--color-error);
+        background: rgba(224, 82, 82, 0.15);
+    }
+
+    50% {
+        color: var(--color-error);
+    }
+
+    100% {
+        color: var(--color-accent-bright);
+        background: transparent;
+    }
+}
+
+.anim-price-drop {
+    animation: price-drop-flash 1.2s var(--ease-out-expo) forwards;
+}
+
+/* ─── AMBIENT FLOAT ──────────────────────────────────────── */
+@keyframes float {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-8px);
+    }
+}
+
+.anim-float {
+    animation: float 6s ease-in-out infinite;
+}
+
+/* ─── GLOW PULSE ─────────────────────────────────────────── */
+@keyframes glow-pulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 20px var(--color-accent-glow);
+    }
+
+    50% {
+        box-shadow: 0 0 48px var(--color-accent-glow), 0 0 80px var(--color-accent-glow);
+    }
+}
+
+.anim-glow-pulse {
+    animation: glow-pulse 3s ease-in-out infinite;
+}
+
+/* ─── LIQUID MORPH (for liquid-button) ───────────────────── */
+@keyframes liquid-morph {
+    0% {
+        border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+    }
+
+    33% {
+        border-radius: 70% 30% 50% 50% / 30% 30% 70% 70%;
+    }
+
+    66% {
+        border-radius: 30% 70% 20% 80% / 70% 50% 50% 30%;
+    }
+
+    100% {
+        border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+    }
+}
+
+/* ─── SHIMMER ────────────────────────────────────────────── */
+@keyframes shimmer {
+    0% {
+        background-position: 200% center;
+    }
+
+    100% {
+        background-position: -200% center;
+    }
+}
+
+/* ─── UNVEIL (used by photo-card decrypt reveal) ─────────── */
+@keyframes unveil {
+    0% {
+        clip-path: inset(0 100% 0 0);
+        opacity: 0;
+    }
+
+    30% {
+        opacity: 1;
+    }
+
+    100% {
+        clip-path: inset(0 0% 0 0);
+        opacity: 1;
+    }
+}
+
+.anim-unveil {
+    animation: unveil 1s var(--ease-out-expo) forwards;
+}
+
+/* ─── NUMBER COUNT-UP ────────────────────────────────────── */
+@keyframes count-in {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.anim-count-in {
+    animation: count-in 0.4s var(--ease-spring) forwards;
+}
+
+/* ─── PAGE LOAD SEQUENCE ─────────────────────────────────── */
+#cv-app-root {
+    animation: fade-in-up 0.8s var(--ease-out-expo) both;
+    animation-delay: 0.1s;
+}
+
+.cv-header {
+    animation: fade-in-down 0.6s var(--ease-out-expo) both;
+    animation-delay: 0.05s;
+}
+
+.cv-hero__eyebrow {
+    animation: fade-in-up 0.6s var(--ease-out-expo) both;
+    animation-delay: 0.2s;
+}
+
+.cv-hero__heading {
+    animation: fade-in-up 0.7s var(--ease-out-expo) both;
+    animation-delay: 0.3s;
+}
+
+.cv-hero__sub {
+    animation: fade-in-up 0.7s var(--ease-out-expo) both;
+    animation-delay: 0.4s;
+}
+
+.cv-hero__actions {
+    animation: fade-in-up 0.7s var(--ease-out-expo) both;
+    animation-delay: 0.5s;
+}
+
+.cv-hero__stat-strip {
+    animation: fade-in-up 0.7s var(--ease-out-expo) both;
+    animation-delay: 0.65s;
+}
+
+/* ─── INTERSECTION OBSERVER REVEAL ───────────────────────── */
+/* Applied by app.js via IntersectionObserver */
+.cv-reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition:
+        opacity 0.7s var(--ease-out-expo),
+        transform 0.7s var(--ease-out-expo);
+}
+
+.cv-reveal.in-view {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Stagger children within a reveal container */
+.cv-reveal-group>* {
+    opacity: 0;
+    transform: translateY(24px);
+    transition:
+        opacity 0.7s var(--ease-out-expo),
+        transform 0.7s var(--ease-out-expo);
+}
+
+.cv-reveal-group.in-view>*:nth-child(1) {
+    opacity: 1;
+    transform: none;
+    transition-delay: 0ms;
+}
+
+.cv-reveal-group.in-view>*:nth-child(2) {
+    opacity: 1;
+    transform: none;
+    transition-delay: 80ms;
+}
+
+.cv-reveal-group.in-view>*:nth-child(3) {
+    opacity: 1;
+    transform: none;
+    transition-delay: 160ms;
+}
+
+.cv-reveal-group.in-view>*:nth-child(4) {
+    opacity: 1;
+    transform: none;
+    transition-delay: 240ms;
+}
+
+.cv-reveal-group.in-view>*:nth-child(5) {
+    opacity: 1;
+    transform: none;
+    transition-delay: 320ms;
+}
+
+.cv-reveal-group.in-view>*:nth-child(6) {
+    opacity: 1;
+    transform: none;
+    transition-delay: 400ms;
+}
+
+.cv-reveal-group.in-view>*:nth-child(n+7) {
+    opacity: 1;
+    transform: none;
+    transition-delay: 480ms;
+}
+
+/* ─── SPINNER ────────────────────────────────────────────── */
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.cv-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--color-border);
+    border-top-color: var(--color-accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: inline-block;
+}
+
+/* ─── UPLOAD PROGRESS ────────────────────────────────────── */
+@keyframes progress-fill {
+    from {
+        transform: scaleX(0);
+    }
+
+    to {
+        transform: scaleX(1);
+    }
+}
+
+/* ─── REDUCED MOTION ─────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+
+    .cv-gallery-skeleton__card {
+        animation: none;
+        background: var(--color-surface-raised);
+    }
+}

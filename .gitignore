@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.vite/
+
+# Environment variables (contains secrets)
+.env
+.env.local
+.env.production
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Uploads (stored in MongoDB GridFS, not filesystem)
+public/uploads/*
+!public/uploads/.gitkeep
+
+# SQLite leftovers (dead code)
+*.db
+*.sqlite
+
+# Admin panel (separate deployment)
+admin/node_modules/
+admin/dist/
+admin/.next/

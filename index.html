@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('cv-theme');
+        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+        else document.documentElement.setAttribute('data-theme', 'dark');
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('cv_state');
+        if (!raw) return;
+        var s = JSON.parse(raw);
+        if (s.auth && s.auth.loggedIn && s.auth.user) {
+          document.documentElement.classList.add('cv-logged-in');
+        }
+      } catch (e) { }
+    })();
+  </script>
+  <!--
+    ╔══════════════════════════════════════════════════════════╗
+    ║  ChitraVithika — Ambient Editorial Photography Marketplace ║
+    ║  Zero dependencies. Pure Web Platform.                    ║
+    ╚══════════════════════════════════════════════════════════╝
+  -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description"
+    content="ChitraVithika — An ultra-premium marketplace for fine-art photography. Acquire limited-edition prints from the world's leading visual artists." />
+  <meta name="theme-color" id="meta-theme-color" content="#080808" />
+  <script>
+    (function () {
+      try {
+        var m = document.getElementById('meta-theme-color');
+        var th = document.documentElement.getAttribute('data-theme');
+        if (m) m.setAttribute('content', th === 'light' ? '#f8f9fa' : '#080808');
+      } catch (e) { }
+    })();
+  </script>
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="ChitraVithika — Fine Art Photography" />
+  <meta property="og:description"
+    content="Ultra-premium photography marketplace. Limited editions. Dutch auctions. Encrypted downloads." />
+  <meta property="og:type" content="website" />
+
+  <!--
+    ┌─────────────────────────────────────────────────────┐
+    │  Custom Element Declarations                         │
+    │  Defined BEFORE scripts load to prevent FOUC.        │
+    │  Browser will defer rendering until elements upgrade. │
+    └─────────────────────────────────────────────────────┘
+  -->
+  <title>ChitraVithika — Fine Art Photography Marketplace</title>
+
+  <!--
+    ┌─────────────────────────────────────────────────────┐
+    │  Typography — Editorial Stack                        │
+    │  Playfair Display: display headings (serif gravitas) │
+    │  Inter: UI body copy (geometric sans)                │
+    │  JetBrains Mono: prices, metadata, counters          │
+    └─────────────────────────────────────────────────────┘
+  -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap"
+    rel="stylesheet" />
+
+  <!--
+    ┌─────────────────────────────────────────────────────┐
+    │  CSS Loading Order (dependency aware)                │
+    └─────────────────────────────────────────────────────┘
+  -->
+  <link rel="stylesheet" href="/src/css/global.css" />
+  <link rel="stylesheet" href="/src/css/typography.css" />
+  <link rel="stylesheet" href="/src/css/animations.css" />
+  <link rel="stylesheet" href="/src/css/pages.css" />
+
+  <!--
+    ┌─────────────────────────────────────────────────────┐
+    │  Inline Critical CSS                                 │
+    │  Prevents layout shift before global.css loads.     │
+    └─────────────────────────────────────────────────────┘
+  -->
+  <style>
+    /* === CRITICAL PATH === */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      background: #080808;
+      color: #f0ede8;
+      font-family: 'Inter', system-ui, sans-serif;
+      overflow-x: hidden;
+      scroll-behavior: smooth;
+    }
+
+    html[data-theme="light"] {
+      background: #f8f9fa;
+      color: #202124;
+    }
+
+    body {
+      min-height: 100dvh;
+      position: relative;
+    }
+
+    /* Skeleton shimmer while components upgrade */
+    :not(:defined) {
+      visibility: hidden;
+    }
+
+    /* Ambient mesh background — updated by K-Means worker via CSS vars */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      background:
+        radial-gradient(ellipse 90% 60% at 20% 10%, var(--color-ambient-1, #1a1020) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 80% at 85% 30%, var(--color-ambient-2, #0a1525) 0%, transparent 55%),
+        radial-gradient(ellipse 70% 50% at 50% 80%, var(--color-ambient-3, #0d1a10) 0%, transparent 60%),
+        radial-gradient(ellipse 80% 70% at 0% 90%, var(--color-ambient-4, #1c1008) 0%, transparent 50%);
+      background-color: #080808;
+      transition: background 1.2s ease;
+      pointer-events: none;
+    }
+
+    html[data-theme="light"] body::before {
+      opacity: 0 !important;
+      background: none !important;
+      background-color: transparent !important;
+    }
+
+    /* Top-level page loading state */
+    #cv-app-root.loading {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+
+    #cv-app-root {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(200, 169, 110, 0.3);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(200, 169, 110, 0.6);
+    }
+
+    /* Utility: visually hidden (accessibility) */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+  </style>
+</head>
+
+<body>
+  <!--
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    ROOT APPLICATION SHELL
+    All custom elements below will be progressively enhanced
+    by their Web Component JS modules loaded at end of body.
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  -->
+  <div id="cv-app-root" class="loading" role="main">
+
+    <!-- ═══════════════════════════════════════════════════
+         HEADER — Brand Identity & Primary Navigation
+         ═══════════════════════════════════════════════════ -->
+    <header id="cv-header" class="cv-header" role="banner">
+      <div class="cv-header__inner">
+
+        <!-- Brand Mark -->
+        <a href="/" class="cv-brand" aria-label="ChitraVithika — Home">
+          <span class="cv-brand__Sanskrit" aria-hidden="true">चित्रविथिका</span>
+          <span class="cv-brand__name">ChitraVithika</span>
+          <span class="cv-brand__tagline">Fine Art Photography</span>
+        </a>
+
+        <!-- Primary Navigation: members see full list; guests see Submit, Join, About -->
+        <nav class="cv-nav" aria-label="Primary navigation">
+          <a href="/gallery" class="cv-nav__link cv-nav__link--member" data-nav="gallery">Gallery</a>
+          <a href="/auctions" class="cv-nav__link cv-nav__link--member" data-nav="auctions">Auctions</a>
+          <a href="/artists" class="cv-nav__link cv-nav__link--member" data-nav="artists">Artists</a>
+          <a href="/submit" class="cv-nav__link" data-nav="submit">Post Work</a>
+          <a href="/register" class="cv-nav__link cv-nav__link--guest-only">Join</a>
+          <a href="/about" class="cv-nav__link" data-nav="about">About</a>
+        </nav>
+
+        <!-- Header Actions -->
+        <div class="cv-header__actions">
+          <liquid-button id="btn-search-toggle" class="cv-header__action--member" variant="ghost"
+            aria-label="Toggle search panel" aria-expanded="false" aria-controls="cv-search-panel">
+            Search
+          </liquid-button>
+          <liquid-button id="btn-collect" class="cv-header__action--member" variant="accent" aria-label="Browse gallery">
+            Browse
+          </liquid-button>
+          <button type="button" id="btn-theme-toggle" class="cv-theme-toggle" aria-label="Switch to light mode"
+            title="Light mode">
+            <span class="cv-theme-toggle__icon cv-theme-toggle__icon--sun" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+              </svg>
+            </span>
+            <span class="cv-theme-toggle__icon cv-theme-toggle__icon--moon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+            </span>
+          </button>
+          <liquid-button id="btn-auth" variant="ghost" aria-label="Sign in">
+            Sign in
+          </liquid-button>
+
+          <div id="cv-user-menu" class="cv-user-menu" hidden aria-hidden="true">
+            <button type="button" id="cv-user-menu-trigger" class="cv-user-menu__trigger"
+              aria-label="Account menu" aria-expanded="false" aria-haspopup="true"
+              aria-controls="cv-user-menu-dropdown">
+              <span class="sr-only">Open account menu</span>
+              <svg class="cv-user-menu__icon" width="22" height="22" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+                aria-hidden="true">
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 20c1.5-4 5.5-6 8-6s6.5 2 8 6" />
+              </svg>
+            </button>
+            <div id="cv-user-menu-dropdown" class="cv-user-menu__dropdown" role="menu" hidden>
+              <div class="cv-user-menu__name" id="cv-user-menu-name" role="presentation"></div>
+              <button type="button" class="cv-user-menu__item" id="cv-user-menu-dashboard" role="menuitem">
+                Dashboard
+              </button>
+              <button type="button" class="cv-user-menu__item cv-user-menu__item--danger" id="btn-header-delete-account"
+                role="menuitem">
+                Delete account
+              </button>
+              <button type="button" class="cv-user-menu__item cv-user-menu__item--danger" id="btn-header-logout"
+                role="menuitem">
+                Log out
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /.cv-header__inner -->
+    </header><!-- /#cv-header -->
+
+
+    <!-- ═══════════════════════════════════════════════════
+         SEARCH PANEL — NLP Vector Search
+         Hidden by default; toggled via #btn-search-toggle
+         ═══════════════════════════════════════════════════ -->
+    <section id="cv-search-panel" class="cv-search-panel" role="search" aria-label="Natural language photo search"
+      aria-hidden="true">
+
+      <div class="cv-search-panel__inner">
+        <h2 class="cv-search-panel__heading" id="search-heading">
+          What are you looking for?
+        </h2>
+        <p class="cv-search-panel__hint">
+          Describe a mood, subject, or aesthetic — our AI finds the closest match.
+        </p>
+
+        <form id="cv-search-form" class="cv-search-form" role="search" aria-labelledby="search-heading"
+          autocomplete="off">
+          <label for="cv-search-input" class="sr-only">Search photographs</label>
+          <input id="cv-search-input" class="cv-search-input" type="search" name="q"
+            placeholder="e.g. &ldquo;golden hour mist over ancient forest&rdquo;"
+            aria-label="Describe what you want to find" spellcheck="false" enterkeyhint="search" />
+          <liquid-button id="btn-search-submit" type="submit" variant="accent" aria-label="Execute search">
+            Find
+          </liquid-button>
+        </form>
+
+        <div id="cv-search-status" class="cv-search-status" aria-live="polite" aria-atomic="true">
+        </div>
+      </div>
+
+    </section><!-- /#cv-search-panel -->
+
+
+    <!-- ═══════════════════════════════════════════════════
+         SPA PAGE OUTLET
+         All page content is rendered here by router.js.
+         Each route's page module injects its HTML into this element.
+         ═══════════════════════════════════════════════════ -->
+    <main id="cv-page" role="main" aria-live="polite">
+      <!-- Page content rendered by router.js -->
+      <div class="cv-page-message" style="opacity:0.3">
+        <p class="cv-page-message__text">Loading…</p>
+      </div>
+    </main>
+
+
+    <!-- ═══════════════════════════════════════════════════
+         FOOTER
+         ═══════════════════════════════════════════════════ -->
+    <footer class="cv-footer" role="contentinfo">
+      <div class="cv-footer__inner">
+        <div class="cv-footer__brand">
+          <span class="cv-brand__Sanskrit" aria-hidden="true">चित्रविथिका</span>
+          <div class="cv-footer__copy">
+            <p>&copy; 2026 ChitraVithika. All rights reserved.</p>
+            <p>The Gallery of Light &amp; Form.</p>
+            <p>
+              Ideated and brought to life by Suraj Kodakandla.
+              <a href="https://www.linkedin.com/in/suraj-kodakandla/" target="_blank" rel="noopener noreferrer" class="cv-footer__linkedin-credit">LinkedIn</a>
+            </p>
+            <p class="cv-footer__copy-heading">Teammates</p>
+            <ul class="cv-footer__teammates">
+              <li><a href="https://www.linkedin.com/in/swathi-sri-704a74353/" target="_blank" rel="noopener noreferrer">Swathi Sri</a></li>
+              <li><a href="https://www.linkedin.com/in/jatin-patil-31075b259/" target="_blank" rel="noopener noreferrer">Jatin Patil</a></li>
+              <li><a href="https://www.linkedin.com/in/chandru-munisamy-a68540275/" target="_blank" rel="noopener noreferrer">Chandru M</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <nav class="cv-footer__nav" aria-label="Footer navigation">
+          <a href="/gallery" class="cv-footer__link--member">Gallery</a>
+          <a href="/auctions" class="cv-footer__link--member">Auctions</a>
+          <a href="/artists" class="cv-footer__link--member">Artists</a>
+          <a href="/submit">Submit</a>
+          <a href="/register" class="cv-footer__link--guest-only">Join</a>
+          <a href="/about">About</a>
+          <a href="/legal/licensing">Licensing</a>
+        </nav>
+
+        <div class="cv-footer__tech">
+          <p class="cv-footer__tech-label">Built with</p>
+          <p class="cv-footer__tech-stack">
+            HTML5 · CSS3 · ES2024+ · Vanilla JS<br />
+            Web Components · Shadow DOM · IndexedDB<br />
+            Web Workers · Streams API · crypto.subtle
+          </p>
+        </div>
+      </div>
+    </footer><!-- /.cv-footer -->
+
+  </div><!-- /#cv-app-root -->
+
+
+  <!--
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    SCRIPT LOADING — MODULE ORDER MATTERS
+    ┌──────────────────────────────────────────────────────┐
+    │ 1. Core utilities (db.js, crypto.js)                 │
+    │ 2. Web Components (must be defined before app.js)    │
+    │ 3. app.js — orchestrator (last)                      │
+    └──────────────────────────────────────────────────────┘
+    All scripts are type="module" for:
+    - ES2024+ top-level await
+    - Automatic strict mode
+    - Deferred by default (no render blocking)
+    - No global namespace pollution
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  -->
+
+  <!-- Core Modules -->
+  <script type="module" src="/src/js/state.js"></script>
+
+  <!-- Web Components -->
+  <script type="module" src="/src/components/liquid-button.js"></script>
+  <script type="module" src="/src/components/photo-card.js"></script>
+  <script type="module" src="/src/components/auction-timer.js"></script>
+  <script type="module" src="/src/components/upload-zone.js"></script>
+  <script type="module" src="/src/components/parallax-gallery.js"></script>
+
+  <!-- SPA Router + Main Orchestrator — Loaded Last -->
+  <script type="module" src="/src/js/app.js"></script>
+
+  <!-- Asset Fortress: Anti-screenshot & anti-right-click protection -->
+  <script>
+    // Prevent right-click on all images
+    document.addEventListener('contextmenu', function(e) {
+      if (e.target.tagName === 'IMG' || e.target.closest('.cv-detail__image-wrap') || e.target.closest('.cv-glass-layer')) {
+        e.preventDefault();
+      }
+    });
+
+    // Prevent image dragging
+    document.addEventListener('dragstart', function(e) {
+      if (e.target.tagName === 'IMG') e.preventDefault();
+    });
+
+    // Blur content when tab loses focus (anti-screenshot)
+    document.addEventListener('visibilitychange', function() {
+      const images = document.querySelectorAll('.cv-detail__image-wrap, .cv-gallery-card__image');
+      images.forEach(function(img) {
+        if (document.hidden) {
+          img.style.filter = 'blur(30px)';
+          img.style.transition = 'filter 0.15s ease';
+        } else {
+          img.style.filter = '';
+        }
+      });
+    });
+  </script>
+
+</body>
+
+</html>
